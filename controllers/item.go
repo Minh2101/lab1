@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	mongo "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"lab1/collections"
 	"lab1/database"
 	"net/http"
@@ -11,6 +14,10 @@ import (
 	"github.com/gobuffalo/validate/validators"
 	"go.mongodb.org/mongo-driver/bson"
 )
+
+type ListID struct {
+	ID []primitive.ObjectID `json:"id"`
+}
 
 func CreateItem(c *gin.Context) {
 	data := bson.M{}
@@ -70,4 +77,32 @@ func UpdateItem(c *gin.Context) {
 	data["entry"] = entry
 	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công", data)
 	return
+}
+
+func DeleteItems(c *gin.Context) {
+	DB := database.GetMongoDB()
+	entry := collections.Item{}
+	entries := collections.Items{}
+	var err error
+	request := ListID{}
+	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
+		ResponseError(c, http.StatusInternalServerError, "Binding dữ liệu lỗi", err)
+		return
+	}
+
+	filter := bson.M{
+		"_id": bson.M{
+			"$in": request.ID,
+		},
+		"deleted_at": nil,
+	}
+	opts := options.Find()
+	if entries, err = entry.Find(DB, filter, opts); err != nil && err != mongo.ErrNoDocuments {
+		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
+		return
+	}
+	for i, _ := range entries {
+		err = entries[i].Delete(DB)
+	}
+	ResponseSuccess(c, http.StatusOK, "Xóa dữ liệu thành công!", nil)
 }
