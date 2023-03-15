@@ -2,6 +2,8 @@ package collections
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 
 	"lab1/database"
@@ -31,6 +33,19 @@ func (u *Item) Create(DB *mongo.Database) error {
 	u.ModifiedAt = time.Now()
 
 	if _, err := DB.Collection(u.CollectionName()).InsertOne(ctx, u); err != nil {
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (u *Item) Update(DB *mongo.Database) error {
+	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
+	defer cancel()
+	u.ModifiedAt = time.Now()
+	if _, err := DB.Collection(u.CollectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{
+		"$set": u,
+	}, options.Update()); err != nil {
 		return err
 	} else {
 		return nil
