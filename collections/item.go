@@ -88,3 +88,13 @@ func (u *Item) Delete(DB *mongo.Database) error {
 		return nil
 	}
 }
+
+func (u *Item) Count(DB *mongo.Database, filter bson.M) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
+	defer cancel()
+	if total, err := DB.Collection(u.CollectionName()).CountDocuments(ctx, filter, options.Count()); err != nil {
+		return 0, err
+	} else {
+		return total, nil
+	}
+}

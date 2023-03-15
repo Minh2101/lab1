@@ -8,6 +8,7 @@ import (
 
 func WebRouter(router *gin.RouterGroup) {
 	common := router.Group("/")
+	common.GET("/items", controllers.ListItems)
 	common.POST("/item", controllers.CreateItem)
 	common.PUT("/item/:id", controllers.UpdateItem)
 	common.POST("/change-status-items", controllers.ChangeStatusItems)

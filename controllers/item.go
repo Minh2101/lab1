@@ -7,6 +7,8 @@ import (
 	"lab1/collections"
 	"lab1/database"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -17,6 +19,62 @@ import (
 
 type ListID struct {
 	ID []primitive.ObjectID `json:"id"`
+}
+
+func ListItems(c *gin.Context) {
+	data := bson.M{}
+	DB := database.GetMongoDB()
+	entry := collections.Item{}
+	entries := collections.Items{}
+	var err error
+	var pagination = BindRequestTable(c, "created_at")
+
+	filter := pagination.CustomFilters(bson.M{})
+	opts := pagination.CustomOptions(options.Find())
+
+	//Search theo title
+	if pagination.Search != "" {
+		filter["$or"] = []bson.M{
+			{
+				"title": bson.M{
+					"$regex":   strings.TrimSpace(pagination.Search),
+					"$options": "i",
+				},
+			},
+		}
+	}
+	//Search theo status item
+	if c.Request.FormValue("status") != "" {
+		statusItem, _ := strconv.ParseBool(c.Request.FormValue("status"))
+		filter["status"] = statusItem
+	}
+	//Search theo khoảng thời gian tạo item
+	fromDate := ConvertTimeYYYYMMDD(c.Request.FormValue("from-date"))
+	toDate := ConvertTimeYYYYMMDD(c.Request.FormValue("to-date"))
+	if !fromDate.IsZero() || !toDate.IsZero() {
+		if toDate.IsZero() {
+			toDate = Now()
+		} else {
+			toDate = toDate.AddDate(0, 0, 1)
+		}
+		filter["created_at"] = bson.M{
+			"$gte": fromDate,
+			"$lte": toDate,
+		}
+	}
+
+	if entries, err = entry.Find(DB, filter, opts); err != nil && err != mongo.ErrNoDocuments {
+		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
+		return
+	} else if err == mongo.ErrNoDocuments {
+		ResponseError(c, http.StatusNotFound, "Không tìm thấy dữ liệu", nil)
+		return
+	}
+	pagination.Total, _ = entry.Count(DB, filter)
+	data["entries"] = entries
+	data["pagination"] = pagination
+	ResponseSuccess(c, http.StatusOK, "Lấy dữ liêu thành công", data)
+	return
 }
 
 func CreateItem(c *gin.Context) {
