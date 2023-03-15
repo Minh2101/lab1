@@ -43,3 +43,31 @@ func CreateItem(c *gin.Context) {
 
 	return
 }
+
+func UpdateItem(c *gin.Context) {
+	data := bson.M{}
+	entry := collections.Item{}
+	DB := database.GetMongoDB()
+	var err error
+
+	//bind dữ liệu
+	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
+		ResponseError(c, http.StatusInternalServerError, "Binding lỗi", nil)
+		return
+	}
+	// Validate
+	val := validate.Validate(
+		&validators.StringIsPresent{Name: "Title", Field: entry.Title, Message: "Tiêu đề không được bỏ trống"},
+	)
+	if val.HasAny() {
+		ResponseError(c, http.StatusUnprocessableEntity, val.Errors[val.Keys()[0]][0], nil)
+		return
+	}
+	if err = entry.Update(DB); err != nil {
+		ResponseError(c, http.StatusInternalServerError, "Cập nhật dữ liệu lỗi", nil)
+		return
+	}
+	data["entry"] = entry
+	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công", data)
+	return
+}
