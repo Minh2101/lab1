@@ -9,4 +9,5 @@ import (
 func WebRouter(router *gin.RouterGroup) {
 	common := router.Group("/")
 	common.POST("/item", controllers.CreateItem)
+	common.PUT("/item/:id", controllers.UpdateItem)
 }
