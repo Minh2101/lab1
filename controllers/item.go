@@ -26,7 +26,7 @@ func ListItems(c *gin.Context) {
 	DB := database.GetMongoDB()
 	entry := collections.Item{}
 	entries := collections.Items{}
-	var err error
+
 	var pagination = BindRequestTable(c, "created_at")
 
 	filter := pagination.CustomFilters(bson.M{})
@@ -45,7 +45,11 @@ func ListItems(c *gin.Context) {
 	}
 	//Search theo status item
 	if c.Request.FormValue("status") != "" {
-		statusItem, _ := strconv.ParseBool(c.Request.FormValue("status"))
+		statusItem, err := strconv.ParseBool(c.Request.FormValue("status"))
+		if err != nil {
+			ResponseError(c, http.StatusBadRequest, "Trạng thái item không hợp lệ", nil)
+			return
+		}
 		filter["status"] = statusItem
 	}
 	//Search theo khoảng thời gian tạo item
@@ -62,6 +66,7 @@ func ListItems(c *gin.Context) {
 		}
 	}
 
+	var err error
 	if entries, err = entry.Find(DB, filter, opts); err != nil && err != mongo.ErrNoDocuments {
 		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
 		return
