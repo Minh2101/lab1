@@ -36,9 +36,8 @@ func (u *Item) Create(DB *mongo.Database) error {
 
 	if _, err := DB.Collection(u.CollectionName()).InsertOne(ctx, u); err != nil {
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (u *Item) First(DB *mongo.Database, filter bson.M) error {
@@ -61,9 +60,8 @@ func (u *Item) Update(DB *mongo.Database) error {
 		"$set": u,
 	}, options.Update()); err != nil {
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (u *Item) Find(DB *mongo.Database, filter bson.M, opts ...*options.FindOptions) (Items, error) {
@@ -96,9 +94,8 @@ func (u *Item) Delete(DB *mongo.Database) error {
 	u.DeletedAt = &now
 	if _, err := DB.Collection(u.CollectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{"$set": u}, nil); err != nil {
 		return err
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (u *Item) Count(DB *mongo.Database, filter bson.M) (int64, error) {
