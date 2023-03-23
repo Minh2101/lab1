@@ -22,7 +22,7 @@ type Item struct {
 }
 type Items []Item
 
-func (u *Item) CollectionName() string {
+func (u *Item) collectionName() string {
 	return "items"
 }
 
@@ -34,7 +34,7 @@ func (u *Item) Create(DB *mongo.Database) error {
 	u.CreatedAt = time.Now()
 	u.ModifiedAt = time.Now()
 
-	if _, err := DB.Collection(u.CollectionName()).InsertOne(ctx, u); err != nil {
+	if _, err := DB.Collection(u.collectionName()).InsertOne(ctx, u); err != nil {
 		return err
 	}
 	return nil
@@ -44,7 +44,7 @@ func (u *Item) First(DB *mongo.Database, filter bson.M) error {
 	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
 	defer cancel()
 
-	if result := DB.Collection(u.CollectionName()).FindOne(ctx, filter); result.Err() != nil {
+	if result := DB.Collection(u.collectionName()).FindOne(ctx, filter); result.Err() != nil {
 		return result.Err()
 	} else {
 		err := result.Decode(&u)
@@ -56,7 +56,7 @@ func (u *Item) Update(DB *mongo.Database) error {
 	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
 	defer cancel()
 	u.ModifiedAt = time.Now()
-	if _, err := DB.Collection(u.CollectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{
+	if _, err := DB.Collection(u.collectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{
 		"$set": u,
 	}, options.Update()); err != nil {
 		return err
@@ -70,7 +70,7 @@ func (u *Item) Find(DB *mongo.Database, filter bson.M, opts ...*options.FindOpti
 	data := make(Items, 0)
 
 	/* Lấy danh sách bản ghi */
-	if cursor, err := DB.Collection(u.CollectionName()).Find(ctx, filter, opts...); err == nil {
+	if cursor, err := DB.Collection(u.collectionName()).Find(ctx, filter, opts...); err == nil {
 		for cursor.Next(ctx) {
 			var elem Item
 			if err = cursor.Decode(&elem); err != nil {
@@ -92,7 +92,7 @@ func (u *Item) Delete(DB *mongo.Database) error {
 	defer cancel()
 	now := time.Now()
 	u.DeletedAt = &now
-	if _, err := DB.Collection(u.CollectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{"$set": u}, nil); err != nil {
+	if _, err := DB.Collection(u.collectionName()).UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{"$set": u}, nil); err != nil {
 		return err
 	}
 	return nil
@@ -101,7 +101,7 @@ func (u *Item) Delete(DB *mongo.Database) error {
 func (u *Item) Count(DB *mongo.Database, filter bson.M) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
 	defer cancel()
-	if total, err := DB.Collection(u.CollectionName()).CountDocuments(ctx, filter, options.Count()); err != nil {
+	if total, err := DB.Collection(u.collectionName()).CountDocuments(ctx, filter, options.Count()); err != nil {
 		return 0, err
 	} else {
 		return total, nil

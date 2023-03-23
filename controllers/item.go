@@ -22,15 +22,15 @@ type ListID struct {
 }
 
 func ListItems(c *gin.Context) {
-	data := bson.M{}
-	DB := database.GetMongoDB()
-	entry := collections.Item{}
-	entries := collections.Items{}
-
-	var pagination = BindRequestTable(c, "created_at")
-
-	filter := pagination.CustomFilters(bson.M{})
-	opts := pagination.CustomOptions(options.Find())
+	var (
+		data       = bson.M{}
+		db         = database.GetMongoDB()
+		entry      = collections.Item{}
+		entries    = collections.Items{}
+		pagination = BindRequestTable(c, "created_at")
+		filter     = pagination.CustomFilters(bson.M{})
+		opts       = pagination.CustomOptions(options.Find())
+	)
 
 	//Search theo title
 	if pagination.Search != "" {
@@ -67,14 +67,14 @@ func ListItems(c *gin.Context) {
 	}
 
 	var err error
-	if entries, err = entry.Find(DB, filter, opts); err != nil && err != mongo.ErrNoDocuments {
+	if entries, err = entry.Find(db, filter, opts); err != nil && err != mongo.ErrNoDocuments {
 		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
 		return
 	} else if err == mongo.ErrNoDocuments {
 		ResponseError(c, http.StatusNotFound, "Không tìm thấy dữ liệu", nil)
 		return
 	}
-	pagination.Total, _ = entry.Count(DB, filter)
+	pagination.Total, _ = entry.Count(db, filter)
 	data["entries"] = entries
 	data["pagination"] = pagination
 	ResponseSuccess(c, http.StatusOK, "Lấy dữ liêu thành công", data)
@@ -82,10 +82,12 @@ func ListItems(c *gin.Context) {
 }
 
 func CreateItem(c *gin.Context) {
-	data := bson.M{}
-	entry := collections.Item{}
-	DB := database.GetMongoDB()
-	var err error
+	var (
+		data  = bson.M{}
+		entry = collections.Item{}
+		db    = database.GetMongoDB()
+		err   error
+	)
 	// Bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
 		ResponseError(c, http.StatusBadRequest, "Dữ liệu gửi lên không chính xác", nil)
@@ -102,7 +104,7 @@ func CreateItem(c *gin.Context) {
 	}
 
 	// Lưu dữ liệu
-	if err = entry.Create(DB); err != nil {
+	if err = entry.Create(db); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Tạo item lỗi", nil)
 		return
 	}
@@ -114,10 +116,12 @@ func CreateItem(c *gin.Context) {
 }
 
 func UpdateItem(c *gin.Context) {
-	data := bson.M{}
-	entry := collections.Item{}
-	DB := database.GetMongoDB()
-	var err error
+	var (
+		data  = bson.M{}
+		entry = collections.Item{}
+		db    = database.GetMongoDB()
+		err   error
+	)
 
 	//bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
@@ -139,13 +143,13 @@ func UpdateItem(c *gin.Context) {
 		"_id":        entry.ID,
 		"deleted_at": nil,
 	}
-	if err = exist.First(DB, filter); err == mongo.ErrNoDocuments {
+	if err = exist.First(db, filter); err == mongo.ErrNoDocuments {
 		ResponseError(c, http.StatusNotFound, "Dữ liệu không tồn tại", nil)
 		return
 	}
 
 	//Update
-	if err = entry.Update(DB); err != nil {
+	if err = entry.Update(db); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Cập nhật dữ liệu lỗi", nil)
 		return
 	}
@@ -156,12 +160,15 @@ func UpdateItem(c *gin.Context) {
 }
 
 func ChangeStatusItems(c *gin.Context) {
-	data := bson.M{}
-	DB := database.GetMongoDB()
-	entry := collections.Item{}
-	entries := collections.Items{}
-	var err error
-	request := ListID{}
+	var (
+		data    = bson.M{}
+		db      = database.GetMongoDB()
+		entry   = collections.Item{}
+		entries = collections.Items{}
+		err     error
+		request = ListID{}
+	)
+
 	if err = c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
 		ResponseError(c, http.StatusBadRequest, "Binding dữ liệu lỗi", err)
 		return
@@ -175,7 +182,7 @@ func ChangeStatusItems(c *gin.Context) {
 	}
 	//Check data
 	opts := options.Find()
-	if entries, err = entry.Find(DB, filter, opts); err != nil {
+	if entries, err = entry.Find(db, filter, opts); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
 		return
 	} else if len(entries) == 0 {
@@ -185,18 +192,21 @@ func ChangeStatusItems(c *gin.Context) {
 	//Update data
 	for i, _ := range entries {
 		entries[i].Status = !entries[i].Status
-		_ = entries[i].Update(DB)
+		_ = entries[i].Update(db)
 	}
 	data["entries"] = entries
 	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công!", data)
 }
 
 func DeleteItems(c *gin.Context) {
-	DB := database.GetMongoDB()
-	entry := collections.Item{}
-	entries := collections.Items{}
-	var err error
-	request := ListID{}
+	var (
+		db      = database.GetMongoDB()
+		entry   = collections.Item{}
+		entries = collections.Items{}
+		err     error
+		request = ListID{}
+	)
+	// Bind data
 	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
 		ResponseError(c, http.StatusBadRequest, "Binding dữ liệu lỗi", err)
 		return
@@ -210,7 +220,7 @@ func DeleteItems(c *gin.Context) {
 	}
 	//Check data
 	opts := options.Find()
-	if entries, err = entry.Find(DB, filter, opts); err != nil {
+	if entries, err = entry.Find(db, filter, opts); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Tìm kiếm dữ liệu lỗi", nil)
 		return
 	} else if len(entries) == 0 {
@@ -220,7 +230,7 @@ func DeleteItems(c *gin.Context) {
 
 	//Delete data
 	for i, _ := range entries {
-		err = entries[i].Delete(DB)
+		err = entries[i].Delete(db)
 	}
 	ResponseSuccess(c, http.StatusOK, "Xóa dữ liệu thành công!", nil)
 }
