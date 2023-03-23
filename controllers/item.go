@@ -84,7 +84,7 @@ func CreateItem(c *gin.Context) {
 	var err error
 	// Bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Dữ liệu gửi lên không chính xác", nil)
+		ResponseError(c, http.StatusBadRequest, "Dữ liệu gửi lên không chính xác", nil)
 		return
 	}
 
@@ -117,7 +117,7 @@ func UpdateItem(c *gin.Context) {
 
 	//bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Binding lỗi", nil)
+		ResponseError(c, http.StatusBadRequest, "Binding lỗi", nil)
 		return
 	}
 	// Validate
@@ -145,7 +145,7 @@ func ChangeStatusItems(c *gin.Context) {
 	var err error
 	request := ListID{}
 	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Binding dữ liệu lỗi", err)
+		ResponseError(c, http.StatusBadRequest, "Binding dữ liệu lỗi", err)
 		return
 	}
 
@@ -175,7 +175,7 @@ func DeleteItems(c *gin.Context) {
 	var err error
 	request := ListID{}
 	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Binding dữ liệu lỗi", err)
+		ResponseError(c, http.StatusBadRequest, "Binding dữ liệu lỗi", err)
 		return
 	}
 
