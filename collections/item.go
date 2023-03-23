@@ -41,6 +41,18 @@ func (u *Item) Create(DB *mongo.Database) error {
 	}
 }
 
+func (u *Item) First(DB *mongo.Database, filter bson.M) error {
+	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
+	defer cancel()
+
+	if result := DB.Collection(u.CollectionName()).FindOne(ctx, filter); result.Err() != nil {
+		return result.Err()
+	} else {
+		err := result.Decode(&u)
+		return err
+	}
+}
+
 func (u *Item) Update(DB *mongo.Database) error {
 	ctx, cancel := context.WithTimeout(context.Background(), database.CTimeOut)
 	defer cancel()
