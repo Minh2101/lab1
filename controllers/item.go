@@ -51,15 +51,14 @@ func ListItems(c *gin.Context) {
 	//Search theo khoảng thời gian tạo item
 	fromDate := ConvertTimeYYYYMMDD(c.Request.FormValue("from-date"))
 	toDate := ConvertTimeYYYYMMDD(c.Request.FormValue("to-date"))
-	if !fromDate.IsZero() || !toDate.IsZero() {
-		if toDate.IsZero() {
-			toDate = Now()
-		} else {
-			toDate = toDate.AddDate(0, 0, 1)
-		}
+	if !fromDate.IsZero() {
 		filter["created_at"] = bson.M{
 			"$gte": fromDate,
-			"$lte": toDate,
+		}
+	}
+	if !toDate.IsZero() {
+		filter["created_at"] = bson.M{
+			"$lte": toDate.AddDate(0, 0, 1),
 		}
 	}
 
