@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-type ListID struct {
+type ListIDRequest struct {
 	ID []primitive.ObjectID `json:"id"`
 }
 
@@ -83,7 +83,7 @@ func ListItems(c *gin.Context) {
 
 func CreateItem(c *gin.Context) {
 	var (
-		data  = bson.M{}
+		//data  = bson.M{}
 		entry = collections.Item{}
 		db    = database.GetMongoDB()
 		err   error
@@ -109,15 +109,15 @@ func CreateItem(c *gin.Context) {
 		return
 	}
 
-	data["entry"] = entry
-	ResponseSuccess(c, http.StatusOK, "Tạo dữ liêu thành công", data)
+	//data["entry"] = entry
+	ResponseSuccess(c, http.StatusCreated, "Tạo dữ liêu thành công", entry)
 
 	return
 }
 
 func UpdateItem(c *gin.Context) {
 	var (
-		data  = bson.M{}
+		//data  = bson.M{}
 		entry = collections.Item{}
 		db    = database.GetMongoDB()
 		err   error
@@ -154,19 +154,19 @@ func UpdateItem(c *gin.Context) {
 		return
 	}
 
-	data["entry"] = entry
-	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công", data)
+	//data["entry"] = entry
+	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công", entry)
 	return
 }
 
 func ChangeStatusItems(c *gin.Context) {
 	var (
-		data    = bson.M{}
+		//data    = bson.M{}
 		db      = database.GetMongoDB()
 		entry   = collections.Item{}
 		entries = collections.Items{}
 		err     error
-		request = ListID{}
+		request = ListIDRequest{}
 	)
 
 	if err = c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
@@ -194,8 +194,8 @@ func ChangeStatusItems(c *gin.Context) {
 		entries[i].Status = !entries[i].Status
 		_ = entries[i].Update(db)
 	}
-	data["entries"] = entries
-	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công!", data)
+	//data["entries"] = entries
+	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công!", entries)
 }
 
 func DeleteItems(c *gin.Context) {
@@ -204,7 +204,7 @@ func DeleteItems(c *gin.Context) {
 		entry   = collections.Item{}
 		entries = collections.Items{}
 		err     error
-		request = ListID{}
+		request = ListIDRequest{}
 	)
 	// Bind data
 	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
