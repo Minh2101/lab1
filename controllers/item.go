@@ -1,20 +1,23 @@
 package controllers
 
 import (
+	"bytes"
+	"github.com/360EntSecGroup-Skylar/excelize"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/gobuffalo/validate"
+	"github.com/gobuffalo/validate/validators"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"lab1/collections"
 	"lab1/database"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"github.com/gobuffalo/validate"
-	"github.com/gobuffalo/validate/validators"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type ListIDRequest struct {
@@ -233,4 +236,142 @@ func DeleteItems(c *gin.Context) {
 		err = entries[i].Delete(db)
 	}
 	ResponseSuccess(c, http.StatusOK, "Xóa dữ liệu thành công!", nil)
+}
+
+func ExportListItems(c *gin.Context) {
+	var (
+		b          bytes.Buffer
+		err        error
+		fileName   string
+		entries    = collections.Items{}
+		entry      = collections.Item{}
+		db         = database.GetMongoDB()
+		pagination = BindRequestTable(c, "created_at")
+		file       = excelize.NewFile()
+	)
+	filter := bson.M{
+		"deleted_at": nil,
+	}
+	//Search theo title
+	if pagination.Search != "" {
+		filter["$or"] = []bson.M{
+			{
+				"title": bson.M{
+					"$regex":   strings.TrimSpace(pagination.Search),
+					"$options": "i",
+				},
+			},
+		}
+	}
+	//Search theo status item
+	if c.Request.FormValue("status") != "" {
+		statusItem, err := strconv.ParseBool(c.Request.FormValue("status"))
+		if err != nil {
+			ResponseError(c, http.StatusBadRequest, "Trạng thái item không hợp lệ", nil)
+			return
+		}
+		filter["status"] = statusItem
+	}
+	//Search theo khoảng thời gian tạo item
+	fromDate := ConvertTimeYYYYMMDD(c.Request.FormValue("from-date"))
+	toDate := ConvertTimeYYYYMMDD(c.Request.FormValue("to-date"))
+	if !fromDate.IsZero() {
+		filter["created_at"] = bson.M{
+			"$gte": fromDate,
+		}
+	}
+	if !toDate.IsZero() {
+		filter["created_at"] = bson.M{
+			"$lte": toDate.AddDate(0, 0, 1),
+		}
+	}
+
+	opts := options.Find().SetAllowDiskUse(true).SetSort(bson.M{"created_at": -1})
+	if entries, err = entry.Find(db, filter, opts); err != nil {
+		ResponseError(c, http.StatusInternalServerError, "Lấy dữ liệu lỗi!", err)
+	}
+
+	if file, fileName, err = ExportExcelListItems(entries); err != nil {
+		return
+	}
+	if err = file.Write(&b); err != nil {
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
+	c.Data(http.StatusOK, "application/octet-stream", b.Bytes())
+}
+
+func ExportExcelListItems(entries collections.Items) (file *excelize.File, fileName string, err error) {
+	sheetName := "Dữ Liệu"
+	index := file.NewSheet(sheetName)
+	file = excelize.NewFile()
+	file.DeleteSheet("Sheet1")
+
+	// set header
+	file.SetCellValue(sheetName, "A1", "STT")
+	file.SetCellValue(sheetName, "B1", "Title")
+	file.SetCellValue(sheetName, "C1", "Status")
+	file.SetCellValue(sheetName, "D1", "Created At")
+	file.SetCellValue(sheetName, "E1", "Modified At")
+
+	// set header
+	header, _ := file.NewStyle(`{"alignment":{"horizontal":"center"}, "font":{"bold":true}, "border":[{"type":"left","color":"000000","style":1},
+	{"type":"top","color":"000000","style":1},{"type":"bottom","color":"000000","style":1},{"type":"right","color":"000000","style":1}]}`)
+	file.SetCellStyle(sheetName, "A1", "E1", header)
+
+	// set border and color
+	border, _ := file.NewStyle(`{"alignment":{"horizontal":"center"}, "border":[{"type":"left","color":"000000","style":1},
+	{"type":"top","color":"000000","style":1},{"type":"bottom","color":"000000","style":1},{"type":"right","color":"000000","style":1}]}`)
+
+	borderColumTitle, _ := file.NewStyle(`{"border":[{"type":"left","color":"000000","style":1},
+	{"type":"top","color":"000000","style":1},{"type":"bottom","color":"000000","style":1},{"type":"right","color":"000000","style":1}]}`)
+
+	color, _ := file.NewStyle(`{"alignment":{"horizontal":"center"}, "fill":{"type":"pattern","color":["#99CC00"],"pattern":1}, 
+	"border":[{"type":"left","color":"000000","style":1},{"type":"top","color":"000000","style":1},
+	{"type":"bottom","color":"000000","style":1},{"type":"right","color":"000000","style":1}]}`)
+
+	noColor, _ := file.NewStyle(`{"alignment":{"horizontal":"center"}, "border":[{"type":"left","color":"000000","style":1},
+	{"type":"top","color":"000000","style":1},{"type":"bottom","color":"000000","style":1},{"type":"right","color":"000000","style":1}]}`)
+
+	// Fill Data
+	countLine := 2
+	for _, entry := range entries {
+		file.SetCellValue(sheetName, "A"+strconv.Itoa(countLine), countLine-1)
+		file.SetCellValue(sheetName, "B"+strconv.Itoa(countLine), entry.Title)
+		if entry.Status {
+			file.SetCellValue(sheetName, "C"+strconv.Itoa(countLine), "Đã làm")
+			file.SetCellStyle(sheetName, "C"+strconv.Itoa(countLine), "C"+strconv.Itoa(countLine), color)
+		} else {
+			file.SetCellValue(sheetName, "C"+strconv.Itoa(countLine), "Chưa làm")
+			file.SetCellStyle(sheetName, "C"+strconv.Itoa(countLine), "C"+strconv.Itoa(countLine), noColor)
+		}
+		file.SetCellValue(sheetName, "D"+strconv.Itoa(countLine), entry.CreatedAt.Format("15:04:05 02/01/2006"))
+		file.SetCellValue(sheetName, "E"+strconv.Itoa(countLine), entry.ModifiedAt.Format("15:04:05 02/01/2006"))
+
+		// Set Borders
+		file.SetCellStyle(sheetName, "A"+strconv.Itoa(countLine), "A"+strconv.Itoa(countLine), border)
+		file.SetCellStyle(sheetName, "B"+strconv.Itoa(countLine), "B"+strconv.Itoa(countLine), borderColumTitle)
+		file.SetCellStyle(sheetName, "D"+strconv.Itoa(countLine), "E"+strconv.Itoa(countLine), border)
+
+		countLine++
+	}
+
+	// set column width
+	file.SetColWidth(sheetName, "B", "B", 20)
+	file.SetColWidth(sheetName, "C", "C", 15)
+	file.SetColWidth(sheetName, "D", "D", 20)
+	file.SetColWidth(sheetName, "E", "E", 20)
+	file.SetActiveSheet(index)
+
+	fileName = "Export_ListItems" + ".xlsx"
+	path, _ := os.Getwd()
+	os.Mkdir(filepath.Join(path, "excel"), 0755)
+	pathFile := filepath.Join(path, "excel", fileName)
+
+	if err = file.SaveAs(pathFile); err != nil {
+		return nil, "", err
+	}
+	return file, fileName, err
 }
