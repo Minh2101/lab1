@@ -17,4 +17,6 @@ func WebRouter(router *gin.RouterGroup) {
 	common.POST("/delete-items", controllers.DeleteItems)
 	common.GET("/export-items", controllers.ExportListItems)
 
+	//ExportPDF
+	common.POST("/export-pdf", controllers.ExportPDF)
 }
