@@ -308,8 +308,8 @@ func ExportListItems(c *gin.Context) {
 
 func ExportExcelListItems(entries collections.Items) (file *excelize.File, fileName string, err error) {
 	sheetName := "Dữ Liệu"
-	index := file.NewSheet(sheetName)
 	file = excelize.NewFile()
+	index := file.NewSheet(sheetName)
 	file.DeleteSheet("Sheet1")
 
 	// set header
@@ -368,7 +368,7 @@ func ExportExcelListItems(entries collections.Items) (file *excelize.File, fileN
 	file.SetColWidth(sheetName, "E", "E", 20)
 	file.SetActiveSheet(index)
 
-	fileName = "Export_ListItems" + ".xlsx"
+	fileName = "Export_ListItems" + time.Now().Format("15-04-05-02-01-2006") + ".xlsx"
 	path, _ := os.Getwd()
 	os.Mkdir(filepath.Join(path, "excel"), 0755)
 	pathFile := filepath.Join(path, "excel", fileName)
