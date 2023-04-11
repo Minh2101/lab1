@@ -27,6 +27,21 @@ type ListIDRequest struct {
 	ID []primitive.ObjectID `json:"id"`
 }
 
+// ListItems godoc
+// @Summary get list items
+// @Description get list items form the database
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param from-date query string false "Ngày bắt đầu lấy dữ liệu theo format YYYY-MM-DD"
+// @Param to-date query string false "Ngày kết thúc lấy dữ liệu theo format YYYY-MM-DD"
+// @Param status query boolean false "Trạng thái item, true hoặc false"
+// @Param search query string false "Từ khóa tìm kiếm theo tiêu đề item"
+// @Success 200 {array} string "Lấy dữ liệu thành công"
+// @Failure 400 {object} string "Trạng thái item tìm kiếm không hợp lệ"
+// @Failure 404 {object} string "Không tìm thấy dữ liệu"
+// @Failure 500 {object} string "Tìm kiếm dữ liệu lỗi"
+// @Router /items [get]
 func ListItems(c *gin.Context) {
 	var (
 		data       = bson.M{}
@@ -53,7 +68,7 @@ func ListItems(c *gin.Context) {
 	if c.Request.FormValue("status") != "" {
 		statusItem, err := strconv.ParseBool(c.Request.FormValue("status"))
 		if err != nil {
-			ResponseError(c, http.StatusBadRequest, "Trạng thái item không hợp lệ", nil)
+			ResponseError(c, http.StatusBadRequest, "Trạng thái item tìm kiếm không hợp lệ", nil)
 			return
 		}
 		filter["status"] = statusItem
@@ -83,10 +98,22 @@ func ListItems(c *gin.Context) {
 	pagination.Total, _ = entry.Count(db, filter)
 	data["entries"] = entries
 	data["pagination"] = pagination
-	ResponseSuccess(c, http.StatusOK, "Lấy dữ liêu thành công", data)
+	ResponseSuccess(c, http.StatusOK, "Lấy dữ liệu thành công", data)
 	return
 }
 
+// CreateItem godoc
+// @Summary Create a Item
+// @Description Create a new Item
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param item body collections.Item true "New Item"
+// @Success 201 {object} collections.Item "Tạo dữ liệu thành công"
+// @Failure 400 {object} string "Dữ liệu gửi lên không chính xác"
+// @Failure 422 {object} string "Tiêu đề không được bỏ trống"
+// @Failure 500 {object} string "Tạo item lỗi"
+// @Router /item [post]
 func CreateItem(c *gin.Context) {
 	var (
 		//data  = bson.M{}
@@ -116,18 +143,46 @@ func CreateItem(c *gin.Context) {
 	}
 
 	//data["entry"] = entry
-	ResponseSuccess(c, http.StatusCreated, "Tạo dữ liêu thành công", entry)
+	ResponseSuccess(c, http.StatusCreated, "Tạo dữ liệu thành công", entry)
 
 	return
 }
 
+// UpdateItem godoc
+// @Summary Update an item
+// @Description Update an existing item
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param id path string true "Item ID"
+// @Param item body collections.Item true "Item object that needs to update"
+// @Success 200 {object} collections.Item "Cập nhật dữ liệu thành công"
+// @Failure 400 {object} string "Binding lỗi"
+// @Failure 404 {object} string "Dữ liệu không tồn tại"
+// @Failure 422 {object} string "Tiêu đề không được bỏ trống"
+// @Failure 500 {object} string "Cập nhật dữ liệu lỗi"
+// @Router /item/{id} [put]
 func UpdateItem(c *gin.Context) {
 	var (
 		//data  = bson.M{}
-		entry = collections.Item{}
-		db    = database.GetMongoDB()
-		err   error
+		entryId, _ = primitive.ObjectIDFromHex(c.Param("id"))
+		entry      = collections.Item{}
+		exist      = collections.Item{}
+		db         = database.GetMongoDB()
+		err        error
 	)
+	//Check exist data
+	filter := bson.M{
+		"_id":        entryId,
+		"deleted_at": nil,
+	}
+	if err = exist.First(db, filter); err != nil && err != mongo.ErrNoDocuments {
+		ResponseError(c, http.StatusInternalServerError, "Lấy dữ liệu lỗi", nil)
+		return
+	} else if err == mongo.ErrNoDocuments {
+		ResponseError(c, http.StatusNotFound, "Không tìm thấy dữ liệu", nil)
+		return
+	}
 
 	//bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
@@ -143,17 +198,9 @@ func UpdateItem(c *gin.Context) {
 		ResponseError(c, http.StatusUnprocessableEntity, val.Errors[val.Keys()[0]][0], nil)
 		return
 	}
-	//Check data
-	exist := collections.Item{}
-	filter := bson.M{
-		"_id":        entry.ID,
-		"deleted_at": nil,
-	}
-	if err = exist.First(db, filter); err == mongo.ErrNoDocuments {
-		ResponseError(c, http.StatusNotFound, "Dữ liệu không tồn tại", nil)
-		return
-	}
 
+	entry.ID = entryId
+	entry.CreatedAt = exist.CreatedAt
 	//Update
 	if err = entry.Update(db); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Cập nhật dữ liệu lỗi", nil)
@@ -165,6 +212,18 @@ func UpdateItem(c *gin.Context) {
 	return
 }
 
+// ChangeStatusItems godoc
+// @Summary Change status items
+// @Description change status items by ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param ID body controllers.ListIDRequest true "Change status by listID"
+// @Success 200 {array} string "Cập nhật dữ liệu thành công"
+// @Failure 400 {object} string "Binding dữ liệu lỗi"
+// @Failure 404 {object} string "Dữ liệu không tồn tại"
+// @Failure 500 {object} string "Tìm kiếm dữ liệu lỗi"
+// @Router /change-status-items [post]
 func ChangeStatusItems(c *gin.Context) {
 	var (
 		//data    = bson.M{}
@@ -204,6 +263,18 @@ func ChangeStatusItems(c *gin.Context) {
 	ResponseSuccess(c, http.StatusOK, "Cập nhật dữ liệu thành công!", entries)
 }
 
+// DeleteItems godoc
+// @Summary Delete Items
+// @Description Delete items by ID
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param ID body controllers.ListIDRequest true "Delete items by listID"
+// @Success 200 {array} string "Xóa dữ liệu thành công"
+// @Failure 400 {object} string "Binding dữ liệu lỗi"
+// @Failure 404 {object} string "Dữ liệu không tồn tại"
+// @Failure 500 {object} string "Tìm kiếm dữ liệu lỗi"
+// @Router /delete-items  [post]
 func DeleteItems(c *gin.Context) {
 	var (
 		db      = database.GetMongoDB()
@@ -213,7 +284,7 @@ func DeleteItems(c *gin.Context) {
 		request = ListIDRequest{}
 	)
 	// Bind data
-	if err := c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
+	if err = c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
 		ResponseError(c, http.StatusBadRequest, "Binding dữ liệu lỗi", err)
 		return
 	}
@@ -241,6 +312,20 @@ func DeleteItems(c *gin.Context) {
 	ResponseSuccess(c, http.StatusOK, "Xóa dữ liệu thành công!", nil)
 }
 
+// ExportListItems godoc
+// @Summary export list items
+// @Description export excel list items form the database
+// @Tags items
+// @Accept json
+// @Produce json
+// @Param from-date query string false "Ngày bắt đầu lấy dữ liệu theo format YYYY-MM-DD"
+// @Param to-date query string false "Ngày kết thúc lấy dữ liệu theo format YYYY-MM-DD"
+// @Param status query boolean false "Trạng thái item, true hoặc false"
+// @Param search query string false "Từ khóa tìm kiếm theo tiêu đề item"
+// @Success 200 {array} string "Trả về file excel"
+// @Failure 400 {object} string "Trạng thái item tìm kiếm không hợp lệ"
+// @Failure 500 {object} string "Lấy dữ liệu hoặc tạo file excel lỗi"
+// @Router /export-items  [get]
 func ExportListItems(c *gin.Context) {
 	var (
 		b          bytes.Buffer
@@ -379,6 +464,15 @@ func ExportExcelListItems(entries collections.Items) (file *excelize.File, fileN
 	return file, fileName, err
 }
 
+// ExportPDF godoc
+// @Summary Export an HTML file to a PDF file.
+// @Description Converts html to a PDF file using wkhtmltopdf library and returns the PDF file.
+// @Accept application/html
+// @Produce application/pdf
+// @Param html body string true "HTML file to be converted to PDF"
+// @Success 200 {file} PDF "PDF file as an attachment"
+// @Failure 500 {object} string "Internal Server Error"
+// @Router /export-pdf [post]
 func ExportPDF(c *gin.Context) {
 	//Request html
 	html, err := ioutil.ReadAll(c.Request.Body)
