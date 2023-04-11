@@ -1,0 +1,289 @@
+definitions:
+  collections.Item:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      id:
+        type: string
+      modified_at:
+        type: string
+      status:
+        type: boolean
+      title:
+        type: string
+    type: object
+  controllers.ListIDRequest:
+    properties:
+      id:
+        items:
+          type: string
+        type: array
+    type: object
+info:
+  contact: {}
+paths:
+  /change-status-items:
+    post:
+      consumes:
+      - application/json
+      description: change status items by ID
+      parameters:
+      - description: Change status by listID
+        in: body
+        name: ID
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ListIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật dữ liệu thành công
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Binding dữ liệu lỗi
+          schema:
+            type: string
+        "404":
+          description: Dữ liệu không tồn tại
+          schema:
+            type: string
+        "500":
+          description: Tìm kiếm dữ liệu lỗi
+          schema:
+            type: string
+      summary: Change status items
+      tags:
+      - items
+  /delete-items:
+    post:
+      consumes:
+      - application/json
+      description: Delete items by ID
+      parameters:
+      - description: Delete items by listID
+        in: body
+        name: ID
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ListIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Xóa dữ liệu thành công
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Binding dữ liệu lỗi
+          schema:
+            type: string
+        "404":
+          description: Dữ liệu không tồn tại
+          schema:
+            type: string
+        "500":
+          description: Tìm kiếm dữ liệu lỗi
+          schema:
+            type: string
+      summary: Delete Items
+      tags:
+      - items
+  /export-items:
+    get:
+      consumes:
+      - application/json
+      description: export excel list items form the database
+      parameters:
+      - description: Ngày bắt đầu lấy dữ liệu theo format YYYY-MM-DD
+        in: query
+        name: from-date
+        type: string
+      - description: Ngày kết thúc lấy dữ liệu theo format YYYY-MM-DD
+        in: query
+        name: to-date
+        type: string
+      - description: Trạng thái item, true hoặc false
+        in: query
+        name: status
+        type: boolean
+      - description: Từ khóa tìm kiếm theo tiêu đề item
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Trả về file excel
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Trạng thái item tìm kiếm không hợp lệ
+          schema:
+            type: string
+        "500":
+          description: Lấy dữ liệu hoặc tạo file excel lỗi
+          schema:
+            type: string
+      summary: export list items
+      tags:
+      - items
+  /export-pdf:
+    post:
+      consumes:
+      - application/html
+      description: Converts html to a PDF file using wkhtmltopdf library and returns
+        the PDF file.
+      parameters:
+      - description: HTML file to be converted to PDF
+        in: body
+        name: html
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/pdf
+      responses:
+        "200":
+          description: PDF file as an attachment
+          schema:
+            type: file
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Export an HTML file to a PDF file.
+  /item:
+    post:
+      consumes:
+      - application/json
+      description: Create a new Item
+      parameters:
+      - description: New Item
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/collections.Item'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Tạo dữ liệu thành công
+          schema:
+            $ref: '#/definitions/collections.Item'
+        "400":
+          description: Dữ liệu gửi lên không chính xác
+          schema:
+            type: string
+        "422":
+          description: Tiêu đề không được bỏ trống
+          schema:
+            type: string
+        "500":
+          description: Tạo item lỗi
+          schema:
+            type: string
+      summary: Create a Item
+      tags:
+      - items
+  /item/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update an existing item
+      parameters:
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item object that needs to update
+        in: body
+        name: item
+        required: true
+        schema:
+          $ref: '#/definitions/collections.Item'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cập nhật dữ liệu thành công
+          schema:
+            $ref: '#/definitions/collections.Item'
+        "400":
+          description: Binding lỗi
+          schema:
+            type: string
+        "404":
+          description: Dữ liệu không tồn tại
+          schema:
+            type: string
+        "422":
+          description: Tiêu đề không được bỏ trống
+          schema:
+            type: string
+        "500":
+          description: Cập nhật dữ liệu lỗi
+          schema:
+            type: string
+      summary: Update an item
+      tags:
+      - items
+  /items:
+    get:
+      consumes:
+      - application/json
+      description: get list items form the database
+      parameters:
+      - description: Ngày bắt đầu lấy dữ liệu theo format YYYY-MM-DD
+        in: query
+        name: from-date
+        type: string
+      - description: Ngày kết thúc lấy dữ liệu theo format YYYY-MM-DD
+        in: query
+        name: to-date
+        type: string
+      - description: Trạng thái item, true hoặc false
+        in: query
+        name: status
+        type: boolean
+      - description: Từ khóa tìm kiếm theo tiêu đề item
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lấy dữ liệu thành công
+          schema:
+            items:
+              type: string
+            type: array
+        "400":
+          description: Trạng thái item tìm kiếm không hợp lệ
+          schema:
+            type: string
+        "404":
+          description: Không tìm thấy dữ liệu
+          schema:
+            type: string
+        "500":
+          description: Tìm kiếm dữ liệu lỗi
+          schema:
+            type: string
+      summary: get list items
+      tags:
+      - items
+swagger: "2.0"
