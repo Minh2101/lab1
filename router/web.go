@@ -2,21 +2,23 @@ package router
 
 import (
 	"lab1/controllers"
+	"lab1/exportPDF"
+	"lab1/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
 
-func WebRouter(router *gin.RouterGroup) {
-	common := router.Group("/")
+func WebRouter(app *gin.RouterGroup) {
+	app.Use(middlewares.AuthMiddleware())
 
 	// Items
-	common.GET("/items", controllers.ListItems)
-	common.POST("/item", controllers.CreateItem)
-	common.PUT("/item/:id", controllers.UpdateItem)
-	common.POST("/change-status-items", controllers.ChangeStatusItems)
-	common.POST("/delete-items", controllers.DeleteItems)
-	common.GET("/export-items", controllers.ExportListItems)
+	app.GET("/items", controllers.ListItems)
+	app.POST("/item", controllers.CreateItem)
+	app.PUT("/item/:id", controllers.UpdateItem)
+	app.POST("/change-status-items", controllers.ChangeStatusItems)
+	app.POST("/delete-items", controllers.DeleteItems)
+	app.GET("/export-items", controllers.ExportListItems)
 
 	//ExportPDF
-	common.POST("/export-pdf", controllers.ExportPDF)
+	app.POST("/export-pdf", exportPDF.ExportPDF)
 }
