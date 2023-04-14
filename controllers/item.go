@@ -3,7 +3,6 @@ package controllers
 import (
 	"bytes"
 	"github.com/360EntSecGroup-Skylar/excelize"
-	"github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/gobuffalo/validate"
@@ -12,7 +11,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	mongo "go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"io/ioutil"
 	"lab1/collections"
 	"lab1/database"
 	"net/http"
@@ -46,13 +44,14 @@ func ListItems(c *gin.Context) {
 	var (
 		data       = bson.M{}
 		db         = database.GetMongoDB()
+		user       = c.MustGet("user").(collections.User)
 		entry      = collections.Item{}
 		entries    = collections.Items{}
 		pagination = BindRequestTable(c, "created_at")
 		filter     = pagination.CustomFilters(bson.M{})
 		opts       = pagination.CustomOptions(options.Find())
 	)
-
+	filter["user_id"] = user.ID
 	//Search theo title
 	if pagination.Search != "" {
 		filter["$or"] = []bson.M{
@@ -119,6 +118,7 @@ func CreateItem(c *gin.Context) {
 		//data  = bson.M{}
 		entry = collections.Item{}
 		db    = database.GetMongoDB()
+		user  = c.MustGet("user").(collections.User)
 		err   error
 	)
 	// Bind dữ liệu
@@ -135,8 +135,9 @@ func CreateItem(c *gin.Context) {
 		ResponseError(c, http.StatusUnprocessableEntity, val.Errors[val.Keys()[0]][0], nil)
 		return
 	}
-
 	// Lưu dữ liệu
+	entry.UserId = user.ID
+
 	if err = entry.Create(db); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Tạo item lỗi", nil)
 		return
@@ -165,6 +166,7 @@ func CreateItem(c *gin.Context) {
 func UpdateItem(c *gin.Context) {
 	var (
 		//data  = bson.M{}
+		user       = c.MustGet("user").(collections.User)
 		entryId, _ = primitive.ObjectIDFromHex(c.Param("id"))
 		entry      = collections.Item{}
 		exist      = collections.Item{}
@@ -174,6 +176,7 @@ func UpdateItem(c *gin.Context) {
 	//Check exist data
 	filter := bson.M{
 		"_id":        entryId,
+		"user_id":    user.ID,
 		"deleted_at": nil,
 	}
 	if err = exist.First(db, filter); err != nil && err != mongo.ErrNoDocuments {
@@ -200,6 +203,7 @@ func UpdateItem(c *gin.Context) {
 	}
 
 	entry.ID = entryId
+	entry.UserId = user.ID
 	entry.CreatedAt = exist.CreatedAt
 	//Update
 	if err = entry.Update(db); err != nil {
@@ -227,6 +231,7 @@ func UpdateItem(c *gin.Context) {
 func ChangeStatusItems(c *gin.Context) {
 	var (
 		//data    = bson.M{}
+		user    = c.MustGet("user").(collections.User)
 		db      = database.GetMongoDB()
 		entry   = collections.Item{}
 		entries = collections.Items{}
@@ -243,6 +248,7 @@ func ChangeStatusItems(c *gin.Context) {
 		"_id": bson.M{
 			"$in": request.ID,
 		},
+		"user_id":    user.ID,
 		"deleted_at": nil,
 	}
 	//Check data
@@ -277,6 +283,7 @@ func ChangeStatusItems(c *gin.Context) {
 // @Router /delete-items  [post]
 func DeleteItems(c *gin.Context) {
 	var (
+		user    = c.MustGet("user").(collections.User)
 		db      = database.GetMongoDB()
 		entry   = collections.Item{}
 		entries = collections.Items{}
@@ -293,6 +300,7 @@ func DeleteItems(c *gin.Context) {
 		"_id": bson.M{
 			"$in": request.ID,
 		},
+		"user_id":    user.ID,
 		"deleted_at": nil,
 	}
 	//Check data
@@ -331,6 +339,7 @@ func ExportListItems(c *gin.Context) {
 		b          bytes.Buffer
 		err        error
 		fileName   string
+		user       = c.MustGet("user").(collections.User)
 		entries    = collections.Items{}
 		entry      = collections.Item{}
 		db         = database.GetMongoDB()
@@ -339,6 +348,7 @@ func ExportListItems(c *gin.Context) {
 	)
 	filter := bson.M{
 		"deleted_at": nil,
+		"user_id":    user.ID,
 	}
 	//Search theo title
 	if pagination.Search != "" {
@@ -462,56 +472,4 @@ func ExportExcelListItems(entries collections.Items) (file *excelize.File, fileN
 		return nil, "", err
 	}
 	return file, fileName, err
-}
-
-// ExportPDF godoc
-// @Summary Export an HTML file to a PDF file.
-// @Description Converts html to a PDF file using wkhtmltopdf library and returns the PDF file.
-// @Accept application/html
-// @Produce application/pdf
-// @Param html body string true "HTML file to be converted to PDF"
-// @Success 200 {file} PDF "PDF file as an attachment"
-// @Failure 500 {object} string "Internal Server Error"
-// @Router /export-pdf [post]
-func ExportPDF(c *gin.Context) {
-	//Request html
-	html, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to read request body", nil)
-		return
-	}
-	//Set Path
-	wkhtmltopdf.SetPath("C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe")
-	pdf, err := wkhtmltopdf.NewPDFGenerator()
-	if err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to create PDF generator", nil)
-		return
-	}
-
-	page := wkhtmltopdf.NewPageReader(bytes.NewBuffer(html))
-	pdf.AddPage(page)
-
-	// Set options for PDF generator
-	pdf.Dpi.Set(300)
-	pdf.Orientation.Set(wkhtmltopdf.OrientationLandscape)
-	page.FooterRight.Set("[page]")
-
-	err = pdf.Create()
-	if err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Fail to create pfd", nil)
-		return
-	}
-	// Write PDF to file
-	filename := "output-" + time.Now().Format("15-04-05-02-01-2006") + ".pdf"
-	path, _ := os.Getwd()
-	os.Mkdir(filepath.Join(path, "pdf"), 0755)
-	filePath := filepath.Join(path, "pdf", filename)
-	if err = pdf.WriteFile(filePath); err != nil {
-		return
-	}
-	// Set headers for response
-	pdfBytes := pdf.Bytes()
-	c.Header("Content-Type", "application/pdf")
-	c.Header("Content-Disposition", "attachment; filename="+filename)
-	c.Data(200, "application/pdf", pdfBytes)
 }
