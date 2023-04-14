@@ -14,6 +14,7 @@ import (
 
 type Item struct {
 	ID         primitive.ObjectID `bson:"_id" json:"id"`
+	UserId     primitive.ObjectID `bson:"user_id" json:"user_id"`
 	Title      string             `bson:"title" json:"title"`
 	Status     bool               `bson:"status" json:"status"`
 	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
