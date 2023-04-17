@@ -44,14 +44,15 @@ func ListItems(c *gin.Context) {
 	var (
 		data       = bson.M{}
 		db         = database.GetMongoDB()
-		user       = c.MustGet("user").(collections.User)
 		entry      = collections.Item{}
 		entries    = collections.Items{}
 		pagination = BindRequestTable(c, "created_at")
 		filter     = pagination.CustomFilters(bson.M{})
 		opts       = pagination.CustomOptions(options.Find())
+		userID, _  = primitive.ObjectIDFromHex((c.MustGet("user_id").(string)))
 	)
-	filter["user_id"] = user.ID
+	//Filter
+	filter["user_id"] = userID
 	//Search theo title
 	if pagination.Search != "" {
 		filter["$or"] = []bson.M{
@@ -116,10 +117,10 @@ func ListItems(c *gin.Context) {
 func CreateItem(c *gin.Context) {
 	var (
 		//data  = bson.M{}
-		entry = collections.Item{}
-		db    = database.GetMongoDB()
-		user  = c.MustGet("user").(collections.User)
-		err   error
+		db        = database.GetMongoDB()
+		entry     = collections.Item{}
+		err       error
+		userID, _ = primitive.ObjectIDFromHex((c.MustGet("user_id").(string)))
 	)
 	// Bind dữ liệu
 	if err = c.ShouldBindBodyWith(&entry, binding.JSON); err != nil {
@@ -136,8 +137,7 @@ func CreateItem(c *gin.Context) {
 		return
 	}
 	// Lưu dữ liệu
-	entry.UserId = user.ID
-
+	entry.UserId = userID
 	if err = entry.Create(db); err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Tạo item lỗi", nil)
 		return
@@ -166,17 +166,17 @@ func CreateItem(c *gin.Context) {
 func UpdateItem(c *gin.Context) {
 	var (
 		//data  = bson.M{}
-		user       = c.MustGet("user").(collections.User)
+		db         = database.GetMongoDB()
 		entryId, _ = primitive.ObjectIDFromHex(c.Param("id"))
 		entry      = collections.Item{}
 		exist      = collections.Item{}
-		db         = database.GetMongoDB()
 		err        error
+		userID, _  = primitive.ObjectIDFromHex((c.MustGet("user_id").(string)))
 	)
 	//Check exist data
 	filter := bson.M{
 		"_id":        entryId,
-		"user_id":    user.ID,
+		"user_id":    userID,
 		"deleted_at": nil,
 	}
 	if err = exist.First(db, filter); err != nil && err != mongo.ErrNoDocuments {
@@ -203,7 +203,7 @@ func UpdateItem(c *gin.Context) {
 	}
 
 	entry.ID = entryId
-	entry.UserId = user.ID
+	entry.UserId = userID
 	entry.CreatedAt = exist.CreatedAt
 	//Update
 	if err = entry.Update(db); err != nil {
@@ -231,12 +231,12 @@ func UpdateItem(c *gin.Context) {
 func ChangeStatusItems(c *gin.Context) {
 	var (
 		//data    = bson.M{}
-		user    = c.MustGet("user").(collections.User)
-		db      = database.GetMongoDB()
-		entry   = collections.Item{}
-		entries = collections.Items{}
-		err     error
-		request = ListIDRequest{}
+		db        = database.GetMongoDB()
+		entry     = collections.Item{}
+		entries   = collections.Items{}
+		err       error
+		userID, _ = primitive.ObjectIDFromHex((c.MustGet("user_id").(string)))
+		request   = ListIDRequest{}
 	)
 
 	if err = c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
@@ -248,7 +248,7 @@ func ChangeStatusItems(c *gin.Context) {
 		"_id": bson.M{
 			"$in": request.ID,
 		},
-		"user_id":    user.ID,
+		"user_id":    userID,
 		"deleted_at": nil,
 	}
 	//Check data
@@ -283,12 +283,12 @@ func ChangeStatusItems(c *gin.Context) {
 // @Router /delete-items  [post]
 func DeleteItems(c *gin.Context) {
 	var (
-		user    = c.MustGet("user").(collections.User)
-		db      = database.GetMongoDB()
-		entry   = collections.Item{}
-		entries = collections.Items{}
-		err     error
-		request = ListIDRequest{}
+		db        = database.GetMongoDB()
+		entry     = collections.Item{}
+		entries   = collections.Items{}
+		err       error
+		userID, _ = primitive.ObjectIDFromHex((c.MustGet("user_id").(string)))
+		request   = ListIDRequest{}
 	)
 	// Bind data
 	if err = c.ShouldBindBodyWith(&request, binding.JSON); err != nil {
@@ -300,7 +300,7 @@ func DeleteItems(c *gin.Context) {
 		"_id": bson.M{
 			"$in": request.ID,
 		},
-		"user_id":    user.ID,
+		"user_id":    userID,
 		"deleted_at": nil,
 	}
 	//Check data
@@ -337,18 +337,18 @@ func DeleteItems(c *gin.Context) {
 func ExportListItems(c *gin.Context) {
 	var (
 		b          bytes.Buffer
+		db         = database.GetMongoDB()
 		err        error
+		file       = excelize.NewFile()
 		fileName   string
-		user       = c.MustGet("user").(collections.User)
 		entries    = collections.Items{}
 		entry      = collections.Item{}
-		db         = database.GetMongoDB()
 		pagination = BindRequestTable(c, "created_at")
-		file       = excelize.NewFile()
+		userID, _  = primitive.ObjectIDFromHex(c.MustGet("user_id").(string))
 	)
 	filter := bson.M{
 		"deleted_at": nil,
-		"user_id":    user.ID,
+		"user_id":    userID,
 	}
 	//Search theo title
 	if pagination.Search != "" {
