@@ -1,50 +1,49 @@
 package middlewares
 
 import (
+	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
-	"lab1/collections"
 	"lab1/controllers"
-	"lab1/database"
+	"net/http"
 	"time"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var (
-			token     = c.Request.Header.Get("Authorization")
-			user      collections.User
-			db        = database.GetMongoDB()
-			userToken collections.UserToken
-		)
-		if token == "" {
-			controllers.ResponseError(c, 401, "Hết phiên đăng nhập", nil)
+		// Lấy JWT token từ header
+		tokenString := c.Request.Header.Get("Authorization")
+		if tokenString == "" {
+			controllers.ResponseError(c, http.StatusUnauthorized, "Missing Authorization Header", nil)
 			return
 		}
-		if err := userToken.FindByToken(db, token); err == nil {
-			// Check token expired
-			if userToken.ExpiredAt.Unix() < time.Now().Unix() {
-				controllers.ResponseError(c, 401, "Hết phiên đăng nhập", err.Error())
-				return
+
+		// Parse JWT token
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			// FindByID
-			if err = user.FindByID(db, userToken.UserID); err == nil {
-				c.Set("user", user)
-				c.Set("token", token)
-				c.Next()
-			} else if err == mongo.ErrNoDocuments {
-				controllers.ResponseError(c, 404, "Chưa đăng nhập", err.Error())
-				return
-			} else {
-				controllers.ResponseError(c, 500, "Server Error", err.Error())
-				return
-			}
-		} else if err == mongo.ErrNoDocuments {
-			controllers.ResponseError(c, 404, "Chưa đăng nhập", err.Error())
-			return
-		} else {
-			controllers.ResponseError(c, 500, "Server Error", err.Error())
+			return []byte("aCSnbH6B1ATyRIDkOS3pB9xXMwOza9m7XrPnceNNVXxwvkbqjXwqgTuFgD1j6GsA"), nil
+		})
+		if err != nil {
+			controllers.ResponseError(c, http.StatusUnauthorized, "Invalid Token", err)
 			return
 		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || !token.Valid {
+			controllers.ResponseError(c, http.StatusUnauthorized, "Invalid Token", err)
+			return
+		}
+		// Kiểm tra thời gian hết hạn của token
+		expiredAt, _ := claims["exp"].(float64)
+		if int64(expiredAt) < time.Now().Unix() {
+			controllers.ResponseError(c, http.StatusUnauthorized, "Token expired", err)
+			return
+		}
+
+		// Lưu thông tin user vào context
+		c.Set("user_id", claims["ID"])
+		c.Set("expired_at", claims["exp"])
+		c.Next()
 	}
 }
