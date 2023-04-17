@@ -164,25 +164,14 @@ func Login(c *gin.Context) {
 		"ID":  user.ID,
 		"exp": expiredAt.Unix(),
 	})
-	if tokenSigned, err := token.SignedString(SECRET_KEY); err != nil {
+	tokenSigned, err := token.SignedString(SECRET_KEY)
+	if err != nil {
 		ResponseError(c, http.StatusInternalServerError, "Server Error", nil)
 		return
-	} else {
-		userToken := collections.UserToken{
-			Token:      tokenSigned,
-			ExpiredAt:  expiredAt,
-			UserID:     user.ID,
-			CreatedAt:  time.Now().UTC(),
-			ModifiedAt: time.Now().UTC(),
-		}
-		if err = userToken.Create(db); err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Server Error", nil)
-			return
-		}
-		ResponseSuccess(c, http.StatusOK, "Đăng nhập thành công!", gin.H{
-			"token":      tokenSigned,
-			"entry":      user,
-			"expired_at": expiredAt,
-		})
 	}
+	ResponseSuccess(c, http.StatusOK, "Đăng nhập thành công!", gin.H{
+		"token":      tokenSigned,
+		"entry":      user,
+		"expired_at": expiredAt,
+	})
 }
